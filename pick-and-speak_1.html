@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pick &amp; Speak</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@500;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --stage: #FFFBF2;
+    --ink: #2D2A26;
+    --card-bg: #ffffff;
+    --panel: #ffffff;
+    --line: rgba(45,42,38,0.10);
+    --shadow: 0 10px 0 rgba(45,42,38,0.10);
+    --gold: #FFC93C;
+    --coral: #FF6B6B;
+    --teal: #2EC4B6;
+    --violet: #8C6FF5;
+    --grass: #6BBF59;
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+  *, *::before, *::after { box-sizing: inherit; }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --stage: #191830;
+      --ink: #F3EFFB;
+      --card-bg: #262244;
+      --panel: #211E3C;
+      --line: rgba(255,255,255,0.08);
+      --shadow: 0 10px 0 rgba(0,0,0,0.28);
+    }
+  }
+  :root[data-theme="dark"] {
+    --stage: #191830;
+    --ink: #F3EFFB;
+    --card-bg: #262244;
+    --panel: #211E3C;
+    --line: rgba(255,255,255,0.08);
+    --shadow: 0 10px 0 rgba(0,0,0,0.28);
+  }
+
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--stage);
+    color: var(--ink);
+    font-family: 'Nunito', system-ui, sans-serif;
+    min-height: 100%;
+    overflow-x: hidden;
+    position: relative;
+  }
+  h1, h2, .brand, .primary-btn, .counter-num, .modal-caption {
+    font-family: 'Fredoka', system-ui, sans-serif;
+  }
+
+  .screen { display: none; min-height: 100vh; min-height: 100dvh; }
+  .screen.active { display: block; }
+
+  /* ---------- Setup screen ---------- */
+  #setup.active {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 32px 20px;
+    position: relative;
+    overflow: hidden;
+  }
+  .glow-blob {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(60px);
+    opacity: 0.55;
+    z-index: 0;
+    pointer-events: none;
+  }
+  .glow-blob.one { width: 340px; height: 340px; top: -120px; left: -90px; background: radial-gradient(circle, var(--violet), transparent 70%); }
+  .glow-blob.two { width: 300px; height: 300px; bottom: -140px; right: -80px; background: radial-gradient(circle, var(--gold), transparent 70%); opacity: 0.35; }
+
+  .setup-card {
+    max-width: 560px;
+    width: 100%;
+    text-align: center;
+    position: relative;
+    z-index: 1;
+  }
+  .spotlight-badge {
+    width: 84px;
+    height: 84px;
+    margin: 0 auto 18px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 36px;
+    background: radial-gradient(circle at 32% 28%, #ffffff55, transparent 55%), linear-gradient(145deg, var(--coral), var(--violet));
+    box-shadow: 0 14px 30px -10px rgba(140, 111, 245, 0.55);
+  }
+  .setup-card h1 {
+    font-size: clamp(34px, 7vw, 52px);
+    margin: 0 0 8px;
+    color: var(--coral);
+    line-height: 1.05;
+  }
+  .tagline {
+    font-size: 18px;
+    opacity: 0.8;
+    margin: 0 0 28px;
+    line-height: 1.5;
+  }
+  .upload-btn {
+    display: inline-block;
+    background: var(--violet);
+    color: white;
+    font-family: 'Fredoka', sans-serif;
+    font-weight: 600;
+    font-size: 18px;
+    padding: 14px 28px;
+    border-radius: 999px;
+    cursor: pointer;
+    box-shadow: 0 6px 0 #5a4cd0;
+    transition: transform 0.08s ease;
+    user-select: none;
+  }
+  .upload-btn:active { transform: translateY(4px); box-shadow: 0 2px 0 #5a4cd0; }
+
+  #uploadSummary {
+    margin-top: 16px;
+    font-size: 15px;
+    min-height: 22px;
+    opacity: 0.85;
+  }
+  #uploadSummary.warn { color: var(--coral); font-weight: 800; }
+  #uploadSummary.ok { color: var(--grass); font-weight: 800; }
+
+  .preview-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(48px, 1fr));
+    gap: 6px;
+    margin: 20px 0;
+    max-height: 220px;
+    overflow-y: auto;
+    padding: 4px;
+  }
+  .preview-grid img {
+    width: 100%;
+    aspect-ratio: 1;
+    object-fit: cover;
+    border-radius: 8px;
+    display: block;
+  }
+
+  .primary-btn {
+    margin-top: 12px;
+    background: var(--coral);
+    color: white;
+    border: none;
+    font-family: 'Fredoka', sans-serif;
+    font-size: 20px;
+    font-weight: 600;
+    padding: 16px 36px;
+    border-radius: 999px;
+    cursor: pointer;
+    box-shadow: 0 6px 0 #d94f4f;
+    transition: transform 0.08s ease, opacity 0.2s ease;
+  }
+  .primary-btn:active { transform: translateY(4px); box-shadow: 0 2px 0 #d94f4f; }
+  .primary-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    box-shadow: 0 6px 0 rgba(45,42,38,0.12);
+  }
+
+  .setup-note {
+    margin-top: 22px;
+    font-size: 13.5px;
+    opacity: 0.6;
+    line-height: 1.5;
+  }
+
+  /* ---------- Game screen ---------- */
+  .game-header {
+    position: sticky;
+    top: env(safe-area-inset-top, 0px);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 16px 20px;
+    background: var(--stage);
+    z-index: 5;
+    border-bottom: 1px solid var(--line);
+  }
+  .brand {
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--violet);
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .counter {
+    font-size: 15px;
+    font-weight: 800;
+    background: var(--gold);
+    color: #2D2A26;
+    padding: 8px 16px;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+  .counter-num { font-size: 17px; }
+  .ghost-btn {
+    background: transparent;
+    border: 1.5px solid var(--ink);
+    color: var(--ink);
+    opacity: 0.55;
+    font-family: 'Nunito', sans-serif;
+    font-weight: 700;
+    font-size: 14px;
+    padding: 8px 14px;
+    border-radius: 999px;
+    cursor: pointer;
+  }
+  .ghost-btn:hover { opacity: 1; }
+
+  .card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+    gap: 14px;
+    padding: 22px 20px 40px;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+
+  .pick-card {
+    aspect-ratio: 1;
+    border: none;
+    border-radius: 22px;
+    color: white;
+    cursor: pointer;
+    box-shadow: var(--shadow);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
+  }
+  .pick-card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at 30% 22%, rgba(255,255,255,0.45), transparent 55%);
+    pointer-events: none;
+  }
+  .pick-card .card-icon {
+    font-size: clamp(22px, 5vw, 30px);
+    filter: drop-shadow(0 2px 3px rgba(0,0,0,0.18));
+  }
+  .pick-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 16px 26px -10px var(--glow, rgba(0,0,0,0.35)), var(--shadow);
+  }
+  .pick-card:active { transform: translateY(3px); box-shadow: 0 3px 0 rgba(45,42,38,0.12); }
+  .pick-card.pop { animation: pop 0.35s ease; }
+  @keyframes pop {
+    0% { transform: scale(1); }
+    40% { transform: scale(1.15) rotate(-3deg); }
+    100% { transform: scale(1); }
+  }
+
+  .pick-card[data-used="true"] {
+    background: var(--card-bg) !important;
+    color: var(--ink);
+    opacity: 0.32;
+    cursor: default;
+    box-shadow: none;
+    pointer-events: none;
+  }
+  .pick-card[data-used="true"]::before { display: none; }
+  .pick-card[data-used="true"] .card-icon::before {
+    content: "✓";
+    font-size: 1.3em;
+    filter: none;
+  }
+  .pick-card[data-used="true"] .card-icon {
+    font-size: 0;
+  }
+
+  .all-done {
+    text-align: center;
+    padding: 60px 20px;
+    display: none;
+  }
+  .all-done.show { display: block; }
+  .all-done h2 { font-size: clamp(28px, 6vw, 40px); color: var(--grass); margin-bottom: 10px; }
+  .all-done p { opacity: 0.75; margin-bottom: 22px; }
+
+  /* ---------- Modal ---------- */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 13, 26, 0.82);
+    display: none;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 24px;
+    z-index: 20;
+    padding-top: calc(24px + env(safe-area-inset-top, 0px));
+    padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  }
+  .modal-overlay.show {
+    display: flex;
+    animation: fadeIn 0.2s ease;
+  }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+  .modal {
+    background: var(--panel);
+    border-radius: 26px;
+    padding: 18px;
+    max-width: min(760px, 94vw);
+    width: 100%;
+    text-align: center;
+    animation: zoomIn 0.3s cubic-bezier(.2,1.4,.4,1);
+    position: relative;
+    margin: auto;
+  }
+  @keyframes zoomIn {
+    from { transform: scale(0.85); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+  }
+  .modal-close {
+    position: absolute;
+    top: -14px;
+    right: -14px;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: none;
+    background: var(--ink);
+    color: var(--panel);
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 6px 14px -4px rgba(0,0,0,0.4);
+    z-index: 2;
+  }
+  .modal-close:hover { opacity: 0.85; }
+  .modal-img-wrap {
+    width: 100%;
+    max-height: min(58vh, 58dvh, 560px);
+    border-radius: 18px;
+    overflow: hidden;
+    background: var(--stage);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+  .modal-img-wrap::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    box-shadow: inset 0 0 40px 6px rgba(0,0,0,0.18);
+    pointer-events: none;
+    border-radius: 18px;
+  }
+  #modalImage {
+    display: block;
+    max-width: 100%;
+    max-height: min(58vh, 58dvh, 560px);
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    cursor: zoom-in;
+  }
+  .zoom-btn {
+    position: absolute;
+    bottom: 12px;
+    right: 12px;
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(20,18,15,0.55);
+    color: white;
+    font-size: 18px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(2px);
+    z-index: 1;
+  }
+  .zoom-btn:hover { background: rgba(20,18,15,0.75); }
+
+  /* ---------- Fullscreen zoom viewer ---------- */
+  .zoom-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(8, 7, 14, 0.94);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 40;
+    padding: calc(20px + env(safe-area-inset-top, 0px)) 20px calc(20px + env(safe-area-inset-bottom, 0px));
+  }
+  .zoom-overlay.show { display: flex; animation: fadeIn 0.15s ease; }
+  .zoom-overlay img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    border-radius: 12px;
+  }
+  .zoom-overlay-close {
+    position: fixed;
+    top: calc(18px + env(safe-area-inset-top, 0px));
+    right: 18px;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(255,255,255,0.12);
+    color: white;
+    font-size: 20px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 41;
+  }
+  .zoom-overlay-close:hover { background: rgba(255,255,255,0.22); }
+  .modal-caption {
+    font-size: clamp(19px, 4.2vw, 24px);
+    font-weight: 600;
+    margin: 16px 0 4px;
+    color: var(--coral);
+  }
+  .modal-sub {
+    font-size: 14.5px;
+    opacity: 0.7;
+    margin: 0 0 18px;
+  }
+
+  /* ---------- Confetti ---------- */
+  #confettiLayer {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+    z-index: 30;
+  }
+  .confetti-piece {
+    position: absolute;
+    top: -20px;
+    width: 10px;
+    height: 14px;
+    opacity: 0.95;
+    animation: fall linear forwards;
+    border-radius: 2px;
+  }
+  @keyframes fall {
+    to { transform: translateY(110vh) rotate(540deg); opacity: 0.3; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .pick-card.pop { animation: none; }
+    .modal-overlay.show { animation: none; }
+    .modal { animation: none; }
+    .confetti-piece { display: none; }
+  }
+
+  :focus-visible { outline: 3px solid var(--violet); outline-offset: 2px; }
+</style>
+</head>
+<body>
+
+<div id="app">
+
+  <section id="setup" class="screen active">
+    <div class="glow-blob one"></div>
+    <div class="glow-blob two"></div>
+    <div class="setup-card">
+      <div class="spotlight-badge">🎤</div>
+      <h1>Pick &amp; Speak</h1>
+      <p class="tagline">Load your pictures, then let each speaker tap a mystery card and talk about whatever shows up.</p>
+
+      <label class="upload-btn" for="fileInput">Choose pictures</label>
+      <input type="file" id="fileInput" accept="image/*" multiple hidden>
+
+      <div id="uploadSummary">No pictures loaded yet</div>
+      <div id="previewGrid" class="preview-grid"></div>
+
+      <div>
+        <button id="startBtn" class="primary-btn" disabled>Start the competition</button>
+      </div>
+
+      <p class="setup-note">Tip: select all image files at once (Ctrl/Cmd-click or drag-select in the file picker). Pictures stay only on this device for this session — nothing is uploaded anywhere.</p>
+    </div>
+  </section>
+
+  <section id="game" class="screen">
+    <header class="game-header">
+      <div class="brand">🎤 Pick &amp; Speak</div>
+      <div class="counter"><span class="counter-num" id="remainingCount">0</span> left to pick</div>
+      <button id="resetBtn" class="ghost-btn">Restart</button>
+    </header>
+
+    <div id="cardGrid" class="card-grid"></div>
+
+    <div id="allDone" class="all-done">
+      <h2>🎉 Every picture has been picked!</h2>
+      <p>Great job to every speaker today.</p>
+      <button id="restartFromDone" class="primary-btn">Start a new round</button>
+    </div>
+  </section>
+
+  <div class="modal-overlay" id="modalOverlay">
+    <div class="modal">
+      <button id="closeBtn" class="modal-close" aria-label="Close">✕</button>
+      <div class="modal-img-wrap">
+        <img id="modalImage" src="" alt="Selected picture">
+        <button id="zoomBtn" class="zoom-btn" aria-label="View picture full size" title="View full size">⤢</button>
+      </div>
+      <div class="modal-caption" id="modalCaption">Ta-da!</div>
+      <p class="modal-sub">Take a look and start talking whenever you're ready.</p>
+      <button id="nextBtn" class="primary-btn">Next speaker →</button>
+    </div>
+  </div>
+
+  <div class="zoom-overlay" id="zoomOverlay">
+    <button id="zoomCloseBtn" class="zoom-overlay-close" aria-label="Close full size view">✕</button>
+    <img id="zoomImage" src="" alt="Full size picture">
+  </div>
+
+  <div id="confettiLayer"></div>
+</div>
+
+<script>
+(function () {
+  var images = []; // { id, url }
+  var used = {};    // id -> true
+  var activeId = null;
+
+  var fileInput = document.getElementById('fileInput');
+  var uploadSummary = document.getElementById('uploadSummary');
+  var previewGrid = document.getElementById('previewGrid');
+  var startBtn = document.getElementById('startBtn');
+  var setupScreen = document.getElementById('setup');
+  var gameScreen = document.getElementById('game');
+  var cardGrid = document.getElementById('cardGrid');
+  var remainingCountEl = document.getElementById('remainingCount');
+  var resetBtn = document.getElementById('resetBtn');
+  var allDoneEl = document.getElementById('allDone');
+  var restartFromDoneBtn = document.getElementById('restartFromDone');
+
+  var modalOverlay = document.getElementById('modalOverlay');
+  var modalImage = document.getElementById('modalImage');
+  var modalCaption = document.getElementById('modalCaption');
+  var nextBtn = document.getElementById('nextBtn');
+  var closeBtn = document.getElementById('closeBtn');
+  var zoomBtn = document.getElementById('zoomBtn');
+  var zoomOverlay = document.getElementById('zoomOverlay');
+  var zoomImage = document.getElementById('zoomImage');
+  var zoomCloseBtn = document.getElementById('zoomCloseBtn');
+  var confettiLayer = document.getElementById('confettiLayer');
+
+  // Cohesive gradient family instead of flat mismatched colors —
+  // each card is a two-stop gradient plus a matching glow tint for hover.
+  var CARD_STYLES = [
+    { bg: 'linear-gradient(150deg, #FF8E7C, #FF6B6B)', glow: 'rgba(255,107,107,0.55)' },
+    { bg: 'linear-gradient(150deg, #48DCD3, #2EC4B6)', glow: 'rgba(46,196,182,0.55)' },
+    { bg: 'linear-gradient(150deg, #FFDA6B, #FFC93C)', glow: 'rgba(255,201,60,0.55)' },
+    { bg: 'linear-gradient(150deg, #A594FF, #8C6FF5)', glow: 'rgba(140,111,245,0.55)' },
+    { bg: 'linear-gradient(150deg, #8ED97D, #6BBF59)', glow: 'rgba(107,191,89,0.55)' },
+    { bg: 'linear-gradient(150deg, #FFB26B, #FF9147)', glow: 'rgba(255,145,71,0.55)' }
+  ];
+  var CONFETTI_COLORS = ['#FF6B6B', '#2EC4B6', '#FFC93C', '#8C6FF5', '#6BBF59'];
+  var REVEAL_PHRASES = ['Ta-da!', 'Ooh, a mystery!', 'Here it is!', 'Spotlight\u2019s on!', 'Look what you found!', 'Surprise!'];
+
+  fileInput.addEventListener('change', function (e) {
+    var files = Array.prototype.slice.call(e.target.files || []);
+    if (!files.length) return;
+
+    images = [];
+    previewGrid.innerHTML = '';
+    used = {};
+
+    files.forEach(function (file, idx) {
+      var reader = new FileReader();
+      reader.onload = function (ev) {
+        var record = { id: idx, url: ev.target.result };
+        images[idx] = record;
+
+        var img = document.createElement('img');
+        img.src = record.url;
+        previewGrid.appendChild(img);
+
+        updateUploadSummary(files.length);
+      };
+      reader.readAsDataURL(file);
+    });
+
+    updateUploadSummary(files.length);
+  });
+
+  function updateUploadSummary(total) {
+    var loaded = images.filter(Boolean).length;
+    uploadSummary.textContent = loaded + ' of ' + total + ' picture(s) loaded';
+    uploadSummary.classList.remove('warn', 'ok');
+    if (loaded === total && total > 0) {
+      uploadSummary.classList.add('ok');
+      uploadSummary.textContent = loaded + ' pictures ready 🎉';
+      startBtn.disabled = false;
+    } else {
+      startBtn.disabled = true;
+    }
+  }
+
+  startBtn.addEventListener('click', function () {
+    startCompetition();
+  });
+
+  function startCompetition() {
+    used = {};
+    setupScreen.classList.remove('active');
+    gameScreen.classList.add('active');
+    allDoneEl.classList.remove('show');
+    cardGrid.style.display = 'grid';
+    buildGrid();
+  }
+
+  function buildGrid() {
+    cardGrid.innerHTML = '';
+    images.forEach(function (record, i) {
+      if (!record) return;
+      var style = CARD_STYLES[i % CARD_STYLES.length];
+      var btn = document.createElement('button');
+      btn.className = 'pick-card';
+      btn.style.background = style.bg;
+      btn.style.setProperty('--glow', style.glow);
+      var icon = document.createElement('span');
+      icon.className = 'card-icon';
+      icon.textContent = '✨';
+      btn.appendChild(icon);
+      btn.setAttribute('data-id', record.id);
+      btn.setAttribute('data-used', 'false');
+      btn.setAttribute('aria-label', 'Mystery card');
+      btn.addEventListener('click', function () {
+        onPick(record, btn);
+      });
+      cardGrid.appendChild(btn);
+    });
+    updateRemaining();
+  }
+
+  function updateRemaining() {
+    var total = images.filter(Boolean).length;
+    var usedCount = Object.keys(used).length;
+    var remaining = total - usedCount;
+    remainingCountEl.textContent = remaining;
+    if (remaining <= 0 && total > 0) {
+      allDoneEl.classList.add('show');
+      cardGrid.style.display = 'none';
+    } else {
+      allDoneEl.classList.remove('show');
+      cardGrid.style.display = 'grid';
+    }
+  }
+
+  function onPick(record, btn) {
+    if (used[record.id]) return;
+    activeId = record.id;
+    btn.classList.add('pop');
+    setTimeout(function () {
+      openModal(record);
+    }, 160);
+  }
+
+  function openModal(record) {
+    modalImage.src = record.url;
+    modalCaption.textContent = REVEAL_PHRASES[Math.floor(Math.random() * REVEAL_PHRASES.length)];
+    modalOverlay.classList.add('show');
+    burstConfetti();
+  }
+
+  function finishPick() {
+    if (activeId !== null) {
+      used[activeId] = true;
+      var btn = cardGrid.querySelector('[data-id="' + activeId + '"]');
+      if (btn) btn.setAttribute('data-used', 'true');
+    }
+    activeId = null;
+    modalOverlay.classList.remove('show');
+    updateRemaining();
+  }
+
+  nextBtn.addEventListener('click', finishPick);
+  closeBtn.addEventListener('click', finishPick);
+
+  zoomBtn.addEventListener('click', openZoom);
+  modalImage.addEventListener('click', openZoom);
+
+  function openZoom() {
+    zoomImage.src = modalImage.src;
+    zoomOverlay.classList.add('show');
+  }
+  function closeZoom() {
+    zoomOverlay.classList.remove('show');
+  }
+  zoomCloseBtn.addEventListener('click', closeZoom);
+  zoomOverlay.addEventListener('click', function (e) {
+    if (e.target === zoomOverlay) closeZoom();
+  });
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape') return;
+    if (zoomOverlay.classList.contains('show')) {
+      closeZoom();
+    } else if (modalOverlay.classList.contains('show')) {
+      finishPick();
+    }
+  });
+
+  function burstConfetti() {
+    for (var i = 0; i < 26; i++) {
+      var piece = document.createElement('div');
+      piece.className = 'confetti-piece';
+      piece.style.left = (Math.random() * 100) + 'vw';
+      piece.style.background = CONFETTI_COLORS[i % CONFETTI_COLORS.length];
+      piece.style.animationDuration = (1.6 + Math.random() * 1.2) + 's';
+      piece.style.animationDelay = (Math.random() * 0.3) + 's';
+      confettiLayer.appendChild(piece);
+      (function (p) {
+        setTimeout(function () { p.remove(); }, 3200);
+      })(piece);
+    }
+  }
+
+  function resetAll(goToSetup) {
+    used = {};
+    activeId = null;
+    modalOverlay.classList.remove('show');
+    if (goToSetup) {
+      gameScreen.classList.remove('active');
+      setupScreen.classList.add('active');
+    } else {
+      buildGrid();
+    }
+  }
+
+  resetBtn.addEventListener('click', function () {
+    if (confirm('Restart this round? All cards will become pickable again.')) {
+      resetAll(false);
+    }
+  });
+
+  restartFromDoneBtn.addEventListener('click', function () {
+    resetAll(false);
+  });
+
+})();
+</script>
+</body>
+</html>
